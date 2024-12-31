@@ -12,12 +12,17 @@ const char* password = "3.14159265";
 #define API_KEY "AIzaSyCcf7QnocO_XnRpU2fP5wfhS_nPRuJKpHs"
 #define FIREBASE_PROJECT_ID "robotic-arm-38d44"
 
+// Define the service account credentials (required for authentication)
+const char PRIVATE_KEY[] PROGMEM = "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQD2tuHbowGQ+iQ8\nqCq37qyHJtQaKeI4/C3oxVTrNJMmX6ZX/8hSapbanDkXDgNT9Axc45n+WuXb28tj\n0impoMuHlQVX4EApsdfTKIUoAtmRUYWtedSg0+HV85qSZGKMT7EvS2Vkyeriy1j/\nQCACzGcUZho4rDP5qwLnB3sa0lZmWPeU/g22FF8ChzUgRvCQ0AhPkpzG5MWSIAH6\n4JJL+Urxi88Pb2pQ9rO+GOgNPTlgX2h80w9rAakJdrLPHB17irASPbU60qFIEdNU\ng9AX8Hz1LHsQhu2I0toHC/gHNo6BrF2131N5uT2ubhNvOySQV3u7FMv1Gp21RMYK\n4ozIOjm1AgMBAAECggEAIXcrumEJWprPtQmjp8kAjqGp9jWVueCdMpyn2PLL/hHN\n7NRlniZWuackyFeOhIIPdj8qWZoHYXQWSf9NRvTofsbsT1/8HBvDWKF/tG50iDV8\nckxbFwi+ssilQDPNOVarBG0P/ySzj5mBRDh0zyReXCJAbs0PDNARZ/i4DmqXLTEi\njnkNvbM4XsyCHJuOBchhV5qWTC1XI9rgSapU8leDdpYJ0Sda4fltnoE0uJ6rD2v2\nfB+oZHwnGuFdBZnc/75rQGz68cWAK8FY+fRsN0X1eKpQlMzoVK5s3Lncy7VHZVfw\nbibSkiZbPswLVnnEl0Bu5AAQe9q5VJyYwXwi0fGR0QKBgQD+5bKsPrLFVi9/ndgL\nsbOgIMjUdqdyjRFkx2QDiSj4jf35udFBSupL1mhbaq2SaBBufrP/XsD+bgTiHsWb\nzoThaHCVTdBHF0+Zz7RxAZ7tp02cBWkIQv0b5D72Z9PsJhXz9F3vueCIP1kkyaN+\nLVkKfa1bB9M83WYfArCjezO4RQKBgQD3yB8mNXGnF5gYTzSRmDyTuX/MTwL+XV7W\nx6qWNudWH1kJVFiFNVpzaVUgSIekM+zd/CFWUsaSJJ0i3rC5rvCn5kajZkEU3GsX\nkLwopcnYi9sFDWu+vVQrHVguwMQssFetfdMfxj3Y+PKAUvwK1K9CpARbikLFyhXN\njZnlf1KqsQKBgQCFqnBisNJQd1ybIGvN3hbi7q5B9CLlCCLJ5WGGFSQeC1/W1+Fq\nyt1IfZvl7HAu6VFMkDbVwJuWEJ2Q8jAP/2FhTsJTGSYSUaAVeX0XEZGE8InbOl8U\nzQQr3ypBTrssB+DVOB0WfDPJXubhSrfoj+E0hiklJlpYfYVy15dHc3DwvQKBgQDE\nViSoiAyolD+Gc6x5+aF2hLRJVgpPN/kgQ1JeeN7SFUDd7aG+28nyTXKQhChG6oY0\nV8aquihyQOTqbn6mg4JZ6FPsweer+gQ5xgvyQXwxRJCl7j6EA02gZD4tvb00k/7F\nkEAsm08CkDDHkfn5MxI0wfZZ+rJyO3EPUbaybTM54QKBgEAIhWyl3/sTokdXYlc2\nBqPoygjFrsanFRiQS0Q1w8oGQvRHO2kITroAE9iW+bIrpM5X1YFfAawoGT3t0r5v\n2fGirQZJzHRKOcddtEZeR4cudQ3l6h8mh26m8rkdzyg72Zug2W/nTaGUEEeVJK1J\ns/npVCfBibP8c4GniOd+xMBw\n-----END PRIVATE KEY-----\n";
+
+const char CLIENT_EMAIL[] PROGMEM = "firebase-adminsdk-6stg2@robotic-arm-38d44.iam.gserviceaccount.com";
+
 // Define Firebase Data object
 FirebaseData fbdo;
 FirebaseAuth auth;
 FirebaseConfig config;
 
-bool tasksRunning = false;
+unsigned long dataMillis = 0;
 
 // Create Servo Objects
 Servo baseServo;      // Base rotation
@@ -81,31 +86,15 @@ void processDocument(FirebaseJson* payload) {
     if(axis6.success) moveServo(6, axis6.to<int>());
 }
 
-void firestoreStreamCallback(FirebaseStream data) {
-    Serial.println("Stream Data...");
-    Serial.println(data.payload().c_str());
-    
-    FirebaseJson payload;
-    payload.setJsonData(data.payload().c_str());
-    processDocument(&payload);
-}
-
-void firestoreStreamTimeoutCallback(bool timeout) {
-    if (timeout) {
-        Serial.println("Stream timeout, resuming...");
-    }
-    if (!fbdo.httpConnected()) {
-        Serial.println("Error code: " + String(fbdo.httpCode()));
-    }
-}
-
 void setup() {
     Serial.begin(115200);
     setup_wifi();
     
     // Initialize Firebase
     config.api_key = API_KEY;
-    config.token_status_callback = tokenStatusCallback;
+    config.service_account.data.client_email = CLIENT_EMAIL;
+    config.service_account.data.project_id = FIREBASE_PROJECT_ID;
+    config.service_account.data.private_key = PRIVATE_KEY;
     
     Firebase.begin(&config, &auth);
     Firebase.reconnectWiFi(true);
@@ -125,14 +114,6 @@ void setup() {
     moveServo(4, 90);
     moveServo(5, 90);
     moveServo(6, 90);
-
-    // Set up Firestore listener
-    if (!tasksRunning) {
-        String documentPath = "roboticArms/armDegree";
-        Firebase.Firestore.beginStream(&fbdo, FIREBASE_PROJECT_ID, "" /* databaseId can be (default) or empty */, documentPath.c_str());
-        Firebase.Firestore.setStreamCallback(&fbdo, firestoreStreamCallback, firestoreStreamTimeoutCallback);
-        tasksRunning = true;
-    }
 }
 
 void loop() {
@@ -140,11 +121,17 @@ void loop() {
         setup_wifi();
     }
     
-    if (!tasksRunning) {
+    // Check for updates every 100ms
+    if (Firebase.ready() && (millis() - dataMillis > 100 || dataMillis == 0)) {
+        dataMillis = millis();
+        
         String documentPath = "roboticArms/armDegree";
-        Firebase.Firestore.beginStream(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str());
-        Firebase.Firestore.setStreamCallback(&fbdo, firestoreStreamCallback, firestoreStreamTimeoutCallback);
-        tasksRunning = true;
+        
+        if (Firebase.Firestore.getDocument(&fbdo, FIREBASE_PROJECT_ID, "", documentPath.c_str())) {
+            FirebaseJson payload;
+            payload.setJsonData(fbdo.payload().c_str());
+            processDocument(&payload);
+        }
     }
     
     delay(10); // Small delay to prevent watchdog timer issues
