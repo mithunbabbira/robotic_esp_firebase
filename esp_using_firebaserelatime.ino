@@ -27,12 +27,12 @@ Servo wristRotServo;  // Wrist rotation
 Servo gripperServo;   // Gripper open/close
 
 // GPIO Pin Assignments
-const int basePin = 32;      
-const int shoulderPin = 26;  
-const int elbowPin = 27;     
-const int wristPin = 14;     
-const int wristRotPin =  12;  
-const int gripperPin = 13;   
+const int basePin = 13;      
+const int shoulderPin = 12;  
+const int elbowPin = 14;     
+const int wristPin = 27;     
+const int wristRotPin = 26;  
+const int gripperPin = 32;   
 
 // Servo positions
 int axis1Pos = 90;
